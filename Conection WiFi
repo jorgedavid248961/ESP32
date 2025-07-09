@@ -1,0 +1,83 @@
+from machine import Pin
+import network
+import time
+
+# Pines LED
+led_ok = Pin(12, Pin.OUT)
+led_error = Pin(14, Pin.OUT)
+led_waiting = Pin(27, Pin.OUT)
+
+# Apaga todos los LEDs al inicio
+led_ok.off()
+led_error.off()
+led_waiting.off()
+
+# Datos de la red Wi-Fi
+ssid = 'Rodríguez'        # Nombre de la red Wi-Fi
+password = '1018252606'        # Contraseña
+
+# Configurar Wi-Fi como estación
+wlan = network.WLAN(network.STA_IF)
+wlan.active(False)
+time.sleep(1)
+wlan.active(True)
+wlan.disconnect()
+time.sleep(1)
+
+# Escanear redes Wi-Fi
+print("🔍 Buscando redes Wi-Fi...")
+wifiList = wlan.scan()
+
+print('Redes encontradas:')
+for r in wifiList:
+    nombre = r[0].decode()
+    canal = r[2]
+    rssi = r[3]
+    print(f'  🛰️  SSID: {nombre}, Canal: {canal}, Señal: {rssi} dBm')
+print('--------------------------------------------\n')
+
+# Función que devuelve texto según el estado
+def estado_wifi(code):
+    estados = {
+        0: "IDLE",
+        1: "CONECTANDO",
+        202: "❌ CONTRASEÑA INCORRECTA",
+        201: "❌ RED NO ENCONTRADA",
+        203: "❌ ERROR DE ASOCIACIÓN",
+        204: "❌ TIMEOUT EN HANDSHAKE",
+        1010: "✅ CONECTADO",
+    }
+    return estados.get(code, "❓ DESCONOCIDO")
+
+# Función de conexión
+def wifi_connect():
+    print("Conectando a Wi-Fi:", ssid)
+    wlan.connect(ssid, password)
+
+    for i in range(15):
+        estado = wlan.status()
+        print(f"Intento {i+1}: Estado {estado} - {estado_wifi(estado)}")
+        led_waiting.on()
+
+        if estado == 1010 or wlan.isconnected():
+            print("\n✅ ¡Conexión exitosa!")
+            print("IP asignada:", wlan.ifconfig()[0])
+            led_waiting.off()
+            led_ok.on()
+            return True
+
+        elif estado in [201, 202, 203, 204]:
+            print("❌ Error durante la conexión")
+            led_waiting.off()
+            led_error.on()
+            return False
+
+        time.sleep(1)
+
+    print("⏰ Tiempo agotado. No se logró conectar.")
+    led_waiting.off()
+    led_error.on()
+    return False
+
+# Ejecutar conexión
+wifi_connect()
