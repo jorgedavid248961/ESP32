@@ -1,0 +1,32 @@
+import network
+import time
+
+# Crear interfaz en modo AP (Access Point)
+ap = network.WLAN(network.AP_IF)
+ap.active(True)
+
+# Configurar el Access Point
+ap.config(essid='ESP32_AP', password='miclave123', authmode=3)
+
+print("🚀 Access Point activo")
+print("Nombre de red (SSID):", ap.config('essid'))
+print("Contraseña: miclave123")  # ← Corregido aquí
+print("Dirección IP:", ap.ifconfig()[0])
+print("Esperando conexiones...")
+
+clientes_previos = set()
+
+while True:
+    clientes_actuales = set(ap.status('stations'))  # lista de tuplas (MAC, IP)
+
+    nuevos = clientes_actuales - clientes_previos
+    salientes = clientes_previos - clientes_actuales
+
+    for mac in nuevos:
+        print("🟢 Nuevo dispositivo conectado:", ':'.join('{:02X}'.format(b) for b in mac[0]))
+
+    for mac in salientes:
+        print("🔴 Dispositivo desconectado:", ':'.join('{:02X}'.format(b) for b in mac[0]))
+
+    clientes_previos = clientes_actuales
+    time.sleep(2)
