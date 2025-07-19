@@ -1,0 +1,37 @@
+from machine import Pin, PWM
+
+class rgb(object):
+    def __init__(self, r: int, g: int, b: int, onValue: bool):
+        self._onValue = onValue
+        
+        self._pwmR = PWM(Pin(r), freq=1000)
+        self._pwmG = PWM(Pin(g), freq=1000)
+        self._pwmB = PWM(Pin(b), freq=1000)
+        
+        self.off()
+
+    def _convert(self, value):
+        # ESP32 usa duty de 0 a 1023 en PWM
+        # Si onValue=True, normal.
+        # Si onValue=False, invertir (común en algunos módulos)
+        if self._onValue:
+            return int((value / 255) * 1023)
+        else:
+            return int((255 - value) / 255 * 1023)
+
+    def setColor(self, r, g, b):
+        self._pwmR.duty(self._convert(r))
+        self._pwmG.duty(self._convert(g))
+        self._pwmB.duty(self._convert(b))
+
+    def off(self):
+        self.setColor(0, 0, 0)
+
+    def red(self):
+        self.setColor(255, 0, 0)
+
+    def green(self):
+        self.setColor(0, 255, 0)
+
+    def blue(self):
+        self.setColor(0, 0, 255)
