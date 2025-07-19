@@ -1,0 +1,107 @@
+import socket
+import rgb
+
+rgbObj = rgb.rgb(12, 14, 27, True)
+rgbObj.off()
+
+# Valores iniciales de intensidad (0-255)
+r_value = 0
+g_value = 0
+b_value = 0
+
+def web_page():
+    html = """
+    <html>
+        <head>
+            <title>RGB Control</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                html { font-family: Arial; text-align: center; }
+                h1 { color: #0F3376; }
+                .slider { width: 80%%; }
+            </style>
+        </head>
+        <body>
+            <h1>ESP32 RGB Control</h1>
+
+            <p>Red: <span id="r_val">""" + str(r_value) + """</span></p>
+            <input type="range" min="0" max="255" value=""" + str(r_value) + """ 
+            class="slider" id="r_slider" onchange="updateRGB()">
+
+            <p>Green: <span id="g_val">""" + str(g_value) + """</span></p>
+            <input type="range" min="0" max="255" value=""" + str(g_value) + """ 
+            class="slider" id="g_slider" onchange="updateRGB()">
+
+            <p>Blue: <span id="b_val">""" + str(b_value) + """</span></p>
+            <input type="range" min="0" max="255" value=""" + str(b_value) + """ 
+            class="slider" id="b_slider" onchange="updateRGB()">
+
+            <script>
+                function updateRGB(){
+                    var r = document.getElementById('r_slider').value;
+                    var g = document.getElementById('g_slider').value;
+                    var b = document.getElementById('b_slider').value;
+                    document.getElementById('r_val').innerHTML = r;
+                    document.getElementById('g_val').innerHTML = g;
+                    document.getElementById('b_val').innerHTML = b;
+                    var xhttp = new XMLHttpRequest();
+                    xhttp.open("GET", "/setRGB?r="+r+"&g="+g+"&b="+b, true);
+                    xhttp.send();
+                }
+            </script>
+        </body>
+    </html>
+    """
+    return html
+
+# Crear socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(('', 80))
+s.listen(5)
+
+print("Servidor listo...")
+
+try:
+    while True:
+        conn, addr = s.accept()
+        print('Conexión desde %s' % str(addr))
+        request = conn.recv(1024)
+        request = str(request)
+
+        # Procesar solicitud
+        if '/setRGB' in request:
+            try:
+                # Parsear parámetros RGB
+                r_pos = request.find('r=')
+                g_pos = request.find('&g=')
+                b_pos = request.find('&b=')
+
+                r_value = int(request[r_pos+2 : g_pos])
+                g_value = int(request[g_pos+3 : b_pos])
+                b_value = int(request[b_pos+3 : request.find(' ', b_pos)])
+
+                # Enviar valores al LED RGB
+                rgbObj.setColor(r_value, g_value, b_value)
+                print("RGB ->", r_value, g_value, b_value)
+
+            except Exception as e:
+                print("Error en parseo:", e)
+
+            conn.send('HTTP/1.1 200 OK\n')
+            conn.send('Content-Type: text/html\n')
+            conn.send('Connection: close\n\n')
+            conn.sendall(web_page())
+            conn.close()
+
+        else:
+            conn.send('HTTP/1.1 200 OK\n')
+            conn.send('Content-Type: text/html\n')
+            conn.send('Connection: close\n\n')
+            conn.sendall(web_page())
+            conn.close()
+
+except KeyboardInterrupt:
+    s.close()
+    print("Servidor detenido")
+
