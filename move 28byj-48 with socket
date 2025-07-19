@@ -1,0 +1,62 @@
+from machine import Pin
+import time
+from microdot import Microdot, Response
+
+app = Microdot()
+Response.default_content_type = 'text/html'
+
+# Configuración del motor 28BYJ-48
+IN1 = Pin(12, Pin.OUT)
+IN2 = Pin(14, Pin.OUT)
+IN3 = Pin(27, Pin.OUT)
+IN4 = Pin(26, Pin.OUT)
+
+pins = [IN1, IN2, IN3, IN4]
+
+# Secuencia de medio paso
+seq = [
+    [1,0,0,0],
+    [1,1,0,0],
+    [0,1,0,0],
+    [0,1,1,0],
+    [0,0,1,0],
+    [0,0,1,1],
+    [0,0,0,1],
+    [1,0,0,1]
+]
+
+def step_motor(steps, delay=3, direction=1):
+    for _ in range(steps):
+        for step in (seq if direction==1 else reversed(seq)):
+            for pin, val in zip(pins, step):
+                pin.value(val)
+            time.sleep_ms(delay)
+
+# Página web con fetch
+@app.route('/')
+def index(request):
+    return """
+    <html>
+    <head><title>Stepper Control</title></head>
+    <body>
+        <h1>Control Stepper 28BYJ-48</h1>
+        <button onclick="fetch('/cw')">Horario</button>
+        <button onclick="fetch('/ccw')">Antihorario</button>
+    </body>
+    </html>
+    """
+
+# Ruta para girar horario
+@app.route('/cw')
+def horario(request):
+    step_motor(128, delay=3, direction=1)
+    return "Motor girado horario"
+
+# Ruta para girar antihorario
+@app.route('/ccw')
+def antihorario(request):
+    step_motor(500, delay=3, direction=-1)
+    return "Motor girado antihorario"
+
+app.run(host='0.0.0.0', port=80)
+
