@@ -1,0 +1,70 @@
+import network
+import socket
+from machine import Pin, PWM
+
+# Configura el servo en el pin 12
+servo = PWM(Pin(12), freq=50)  # 50 Hz para servo SG90
+
+# Función para mover el servo al ángulo deseado
+def set_servo_angle(angle):
+    # Mapea el ángulo (0-180) al duty ciclo para el SG90 (40-115 aprox en ESP32)
+    min_duty = 26   # Aproximadamente 0 grados
+    max_duty = 115  # Aproximadamente 180 grados
+    duty = int(min_duty + (angle / 180) * (max_duty - min_duty))
+    servo.duty(duty)
+
+
+
+# Página web con slider
+def web_page(position):
+    html = """<html><head><title>Servo Control</title></head>
+    <body>
+    <h2>Control de Servo ESP32</h2>
+    <p>Ángulo actual: <strong>""" + str(position) + """°</strong></p>
+    <input type="range" min="0" max="180" value=""" + str(position) + """ onchange="updateServo(this.value)">
+    <script>
+        function updateServo(pos) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "/servo?pos=" + pos, true);
+            xhr.send();
+            location.reload();
+        }
+    </script>
+    </body></html>"""
+    return html
+
+# Servidor web
+pos = 90  # Ángulo inicial
+set_servo_angle(pos)
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind(('', 80))
+s.listen(5)
+
+print("Servidor listo...")
+
+while True:
+    conn, addr = s.accept()
+    print('Cliente conectado:', addr)
+    request = conn.recv(1024)
+    request = str(request)
+    print("Petición: ", request)
+    
+    # Parseo de la petición
+    if "/servo?pos=" in request:
+        try:
+            pos_str = request.split('/servo?pos=')[1].split(' ')[0]
+            pos = int(pos_str)
+            if pos < 0: pos = 0
+            if pos > 180: pos = 180
+            set_servo_angle(pos)
+        except:
+            pass
+
+    response = web_page(pos)
+    conn.send('HTTP/1.1 200 OK\n')
+    conn.send('Content-Type: text/html\n')
+    conn.send('Connection: close\n\n')
+    conn.sendall(response)
+    conn.close()
+
